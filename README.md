@@ -40,18 +40,23 @@ SERVER_PORT=168         # 只限於 dev階段預設，prod 看docker-compose 設
 LINE_CHANNEL_SECRET= 申請 LINE Official Message API Channel 時可得
 LINE_CHANNEL_ACCESS_TOKEN= 需要 LINE Developers 針對 Message API 生成
 ```
+* 延伸功能 <br/>
+a. module/redis.py 負責所有對redis 的讀寫動作，外部只能讀取，寫入動作是 timer 控制 <br/>
+b. module/sysmonitor.py 對於所有需要監控的項目整合在此，只負責擷取資訊 <br/>
+c. common/jobsmanager.py 由主thread 喚醒後，按照設置去輪巡(Timer) sysmonitor.py 的項目<br/>
+
 
 * startup [prod]
 > 已經記錄在 docker-compose.yml ，直接執行或是接續到整合方案中 (eg. k8s, coolify...)
 ```
-~> docker build                # 如果抓不到開放的環境印象檔案
+~> docker compose build                # 如果抓不到開放的環境印象檔案
 ~> docker compose run -d
 ```
 
 * develop [dev -> Staging]
 > 利用準備好的環境進行測試
 ```
-~> docker build   
+~> docker compose build   
 ~> docker run -v ./app:/usr/local/app  -it markhsieh4good/python:3.13-slim-devenv /bin/bash
 ```
 > 進入模擬的container 中...
@@ -72,4 +77,4 @@ Press CTRL+C to quit
 
 ## Version
 
-20260302-01
+20260302-0b
