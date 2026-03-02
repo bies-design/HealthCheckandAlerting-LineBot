@@ -1,0 +1,50 @@
+version: '3.3'
+
+services:
+  linebot.redis: 
+    image: redis:6.0 
+    container_name: linebot.redis
+    restart: unless-stopped
+    networks:
+      coolify:
+          aliases:
+            - linebot.redis
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "3m"
+        max-file: "10"
+
+  linebot.app:
+    tty: true
+    build: 
+        context: .
+        dockerfile: ./Dockerfile
+    image: markhsieh4good/python:3.13-slim-devenv
+    container_name: linebot.app 
+    restart: unless-stopped 
+    command: gunicorn -w 4 -b 0.0.0.0:168 app.__main__:app
+    networks:
+      coolify:
+          aliases:
+            - linebot.app
+    environment:
+      - REDIS_HOST=linebot.redis
+    depends_on:
+      - linebot.redis
+    ports:
+      - 3000:168
+    volumes:
+      - ./app:/usr/local/app
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "3m"
+        max-file: "10"
+    # privileged: true # Privileged mode could be required to run this container under Windows
+
+networks:
+    coolify:
+        external: true
+        name: coolify
+        attachable: true
