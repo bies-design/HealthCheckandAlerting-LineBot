@@ -1,4 +1,4 @@
-import redis
+import app.common.redis as redis
 from typing import Any, Optional
 
 class RedisClient:
