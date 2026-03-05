@@ -46,9 +46,6 @@ from app.common.myqueue import MyQueue
 # 載入環境變數
 load_dotenv()
 
-# 全局變數
-StopSys = False
-
 # 啟用loging 模組
 logging.basicConfig(
                     level=logging.INFO,
@@ -60,6 +57,11 @@ logging.basicConfig(
                     ]
         )
 logger = logging.getLogger(__name__)
+
+# 全局變數
+StopSys = False
+TaskQueue = MyQueue(logger, 100, 0.25)  # 任務佇列
+
 
 # 可控資源釋出操作
 def stop_self():

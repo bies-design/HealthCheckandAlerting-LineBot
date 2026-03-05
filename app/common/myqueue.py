@@ -6,7 +6,7 @@ import math
 import logging
 import json
 
-from queue import PriorityQueue
+from queue import PriorityQueue, Empty
 ## queue module of python 3, support three type as below
 # queue.Queue：FIFO 先進先出
 # queue.LifoQueue：LIFO類似於堆疊 stack，即先進後出
