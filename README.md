@@ -36,7 +36,12 @@
 * configuration
 > 需要建立 app/.env，建構內容請參考如下，其中數值如何取得請看其他文件
 ```
-SERVER_PORT=168         # 只限於 dev階段預設，prod 看docker-compose 設定
+SERVER_PORT=168         # 服務監聽 Port
+# CRITICAL=FATAL > ERROR > WARNING=WARN > INFO > DEBUG > NOTSET
+# 50               40      30             20     10      0
+LOGGER_LEVEL=DEBUG      # 紀錄層級，表示只顯示大於等於所選階層的訊息
+TIMEZONE=Asia/Taipei    # 時間區域
+REFRESH_SECONDS=2       # 每次檢查完的間隔時間
 LINE_CHANNEL_SECRET= 申請 LINE Official Message API Channel 時可得
 LINE_CHANNEL_ACCESS_TOKEN= 需要 LINE Developers 針對 Message API 生成
 ```
@@ -50,18 +55,18 @@ c. common/jobsmanager.py 由主thread 喚醒後，按照設置去輪巡(Timer) s
 > 已經記錄在 docker-compose.yml ，直接執行或是接續到整合方案中 (eg. k8s, coolify...)
 ```
 ~> docker compose build                # 如果抓不到開放的環境印象檔案
-~> docker compose run -d
+~> docker compose up -d
 ```
 
 * develop [dev -> Staging]
 > 利用準備好的環境進行測試
 ```
 ~> docker compose build   
-~> docker run -v ./app:/usr/local/app  -it markhsieh4good/python:3.13-slim-devenv /bin/bash
+~> docker run -v ./app:/usr/local/app  -it markhsieh4good/python:3.13-slim-devenv bash
 ```
 > 進入模擬的container 中...
 ```
-~:/usr/local# # python3 app/__strage__.py
+~:/usr/local# python3 app/__strage__.py
 
  * Serving Flask app '__strage__'
  * Debug mode: on
@@ -74,7 +79,17 @@ Press CTRL+C to quit
  * Debugger is active!
  * Debugger PIN: 119-215-888
 ```
+> 更新模組相依性紀錄 <br/>
+> 請上網查詢對應需求功能的模組名稱。eg. r/w yaml file --> PyYAML
+```
+~:/usr/local# python3 -m pip install [Module Name]
+~:/usr/local# python3 -m pip freeze 
+~:/usr/local# exit
+```
+把輸出的版本資訊轉貼到 requirements.txt，此檔案要更新到 repo. <br/>
+下次啟動服務前要先 docker compose build，把新增的模組合併到預設環境中 <br/>
 
 ## Version
 
 20260302-0b
+20260305-0a

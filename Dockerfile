@@ -28,3 +28,9 @@ RUN ./utility_namespace_dns.sh
 ## install python package
 COPY requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
+
+## copy easy bash files
+COPY dev_start.sh .
+RUN chmod +x ./dev_start.sh
+COPY prod_start.sh .
+RUN chmod +x ./prod_start.sh

@@ -1,19 +1,57 @@
 #!/usr/bin/env python3.9
 # -*- coding: utf-8 -*-
 # author: mark.hsieh
+########################
 
-import math  
+# System Modules
+import sys
 import logging
 import json
 
+# Logging Modules
+import logging
+from datetime import datetime, timezone, timedelta
+
+# Custom Modified Target Modules
 from queue import PriorityQueue, Empty
 ## queue module of python 3, support three type as below
 # queue.Queue：FIFO 先進先出
 # queue.LifoQueue：LIFO類似於堆疊 stack，即先進後出
 # queue.PriorityQueue：優先級別越低越先出來，優先級用數字算就是越小越優先
 
+# 自定義時區格式器
+class TimezoneFormatter(logging.Formatter):
+    def __init__(self, fmt=None, datefmt=None, timezone='UTC'):
+        super().__init__(fmt, datefmt)
+        self.timezone = timezone
+        # 設定時區偏移（簡單實現，支援 UTC 和固定偏移）
+        if timezone == 'UTC':
+            self.tz_offset = 0
+        elif timezone == 'Asia/Taipei':
+            self.tz_offset = 8  # UTC+8
+        elif timezone == 'America/New_York':
+            self.tz_offset = -5  # UTC-5 (標準時間)
+        else:
+            # 預設 UTC
+            self.tz_offset = 0
+
+    def formatTime(self, record, datefmt=None):
+        # 取得記錄時間並轉換時區
+        dt = datetime.fromtimestamp(record.created, tz=timezone.utc)
+        dt = dt + timedelta(hours=self.tz_offset)
+        
+        if datefmt:
+            s = dt.strftime(datefmt)
+        else:
+            s = dt.strftime('%Y-%m-%d %H:%M:%S')
+        
+        # 添加毫秒
+        if self.default_msec_format:
+            s = self.default_msec_format % (s, record.msecs)
+        return s
+
 class MyQueue(object):
-    def __init__(self, logger, size=30, high_permission_has=0.25) -> None:
+    def __init__(self, logger_level=logging.INFO, timezone='UTC', size=30, high_permission_has=0.25) -> None:
         super().__init__()
         self.__q = PriorityQueue(size+1) # avoid out of range.
         if (high_permission_has <= 0):
@@ -27,9 +65,33 @@ class MyQueue(object):
         self.__normal_push_count = 0
         self.__high_pop_count = 0
         self.__normal_pop_count = 0
-        self.logger = logger
+        
+        self.logger = self.__create_logger(logger_level, timezone)
+        
         self.logger.info("{} already loaded finish.".format(__name__))
-    
+        
+    def __create_logger(self, logger_level=logging.INFO, timezone='UTC'):
+        """創建專屬於此類的 logger"""
+        logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        logger.setLevel(logger_level)
+        
+        # 只有在沒有處理器時才添加（避免重複）
+        if not logger.handlers:
+            # 創建 StreamHandler
+            handler = logging.StreamHandler(sys.stdout)
+            
+            # 設定時區格式器
+            formatter = TimezoneFormatter(
+                fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S',
+                timezone=timezone  # 或從環境變數獲取
+            )
+            handler.setFormatter(formatter)
+            
+            logger.addHandler(handler)
+        
+        return logger
+
     def clean(self):
         l_count_giveup_tasks = 0
         while self.isEmpty() is False:

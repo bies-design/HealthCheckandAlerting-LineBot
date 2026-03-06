@@ -60,14 +60,15 @@ logger = logging.getLogger(__name__)
 
 # 全局變數
 StopSys = False
-TaskQueue = MyQueue(logger, 100, 0.25)  # 任務佇列
-
+TaskQueue = MyQueue(logger, 100, 0)  # 任務佇列:  order is base on request him self.
+JobsManagerStopEvent = Event()
+PollingActionSchedulerStopEvent = Event()
 
 # 可控資源釋出操作
 def stop_self():
     os.kill(os.getpid(), signal.SIGINT)
 
-def isStopSys():
+def cb_is_sys_stop():
     return StopSys
 
 def signal_handler(signum, frame):
@@ -93,36 +94,47 @@ def signal_handler(signum, frame):
     else:
         print('just alarm for test')
 
+# system signal reader
+signal.signal(signal.SIGALRM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGABRT, signal_handler)
+signal.alarm(signal.SIGALRM)
 
 # =======================================
 # Thread 1: Jobs Manager
 # =======================================
-
-JobsManagerStopEvent = Event()
-JobsManagerThread = Thread(
-    target=JobsManager.run, 
-    args=(JobsManagerStopEvent, TaskQueue, isStopSys), 
-    name="[JobsManager]... Thread")
-JobsManagerThread.start()
-
-# =======================================
-# Thread 2: Polling Actions Scheduler
-# =======================================
-def cb_is_stop():
-    if not isStopSys():
+def cb_is_polling_stop():
+    if not cb_is_sys_stop():
         return False
-    elif not JobsManagerStopEvent.is_set():
-        logger.info("JobsManager not stop yet. ...")
+    elif not PollingActionSchedulerStopEvent.is_set():
+        logger.info("Polling-Action Scheduler not stop yet. ...")
         return False
     else:
         return True
 
-PollingActionSchedulerStopEvent = Event()
-PollingActionSchedulerThread = Thread(
-    target=PollingActionScheduler.run, 
-    args=(PollingActionSchedulerStopEvent, TaskQueue, cb_is_stop), 
-    name="[PollingActionScheduler]... Thread")
-PollingActionSchedulerThread.start()
+# JobsManager = JobsManager(logger, is_stop_event=JobsManagerStopEvent, 
+#                           timezone=os.getenv("TIMEZONE", "Asia/Taipei"), 
+#                           refresh_seconds=1) 
+# # refresh_seconds need to be shot because loop already blocking by element length fo queue.
+# JobsManagerThread = Thread(
+#     target=JobsManager.run, 
+#     args=(TaskQueue, cb_is_polling_stop), 
+#     name="[JobsManager]... Thread")
+# JobsManagerThread.start()
+
+# =======================================
+# Thread 2: Polling Actions Scheduler
+# =======================================
+
+# PollingActionScheduler = PollingActionScheduler(logger, is_stop_event=PollingActionSchedulerStopEvent, 
+#                                                 timezone=os.getenv("TIMEZONE", "Asia/Taipei"), 
+#                                                 refresh_seconds=os.getenv("REFRESH_SECONDS", 1))
+# PollingActionSchedulerThread = Thread(
+#     target=PollingActionScheduler.run, 
+#     args=(TaskQueue, cb_is_sys_stop), 
+#     name="[PollingActionScheduler]... Thread")
+# PollingActionSchedulerThread.start()
 
 # =======================================
 # Thread 3: Listener Http Rx
@@ -140,7 +152,7 @@ handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 # Webhook 進入點
 # ────────────────────────────────────────
 @app.route("/webhook", methods=["POST"])
-def webhook():
+def webhook():   # auto mapping to /webhook by flask
     signature = request.headers.get("X-Line-Signature", "")
     body = request.get_data(as_text=True)
 
@@ -156,7 +168,7 @@ def webhook():
 # 處理文字訊息（Echo Bot 範例）
 # ────────────────────────────────────────
 @handler.add(MessageEvent, message=TextMessageContent)
-def handle_text_message(event):
+def handle_text_message(event):   # overwrite the default handler for receive message event
     user_text = event.message.text
     reply_text = f"你說：{user_text}"  # 可改成你的業務邏輯
 
@@ -176,7 +188,7 @@ def handle_text_message(event):
 # 處理加入好友事件
 # ────────────────────────────────────────
 @handler.add(FollowEvent)
-def handle_follow(event):
+def handle_follow(event):   # overwrite the default handler for receive follow event
     with ApiClient(configuration) as api_client:
         messaging_api = MessagingApi(api_client)
         messaging_api.reply_message(
@@ -193,7 +205,7 @@ def handle_follow(event):
 # 處理封鎖事件（無法回覆，只記錄）
 # ────────────────────────────────────────
 @handler.add(UnfollowEvent)
-def handle_unfollow(event):
+def handle_unfollow(event):  # overwrite the default handler for receive unfollow event
     print(f"使用者封鎖了 Bot：{event.source.user_id}")
 
 
@@ -203,10 +215,3 @@ def handle_unfollow(event):
 # if __name__ == "__main__":
 #     # 仅在直接运行时用，否则用 gunicorn
 #     app.run(host="0.0.0.0", port=os.getenv("SERVER_PORT"), debug=True)
-
-# system signal reader
-signal.signal(signal.SIGALRM, signal_handler)
-signal.signal(signal.SIGINT, signal_handler)
-signal.signal(signal.SIGTERM, signal_handler)
-signal.signal(signal.SIGABRT, signal_handler)
-signal.alarm(signal.SIGALRM)

@@ -1,0 +1,2 @@
+syscheck: "cpu,memory,disk,process"
+appcheck: ""
